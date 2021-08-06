@@ -138,8 +138,10 @@ export default function ActivityView({ match }) {
     fetchActivity()
       .then((response) => response.json())
       .then((data) => {
-        setStartDate(new Date(data[data.length - 1].date));
-        setEndDate(new Date(data[0].date));
+        if (data.length) {
+          setStartDate(new Date(data[data.length - 1].date));
+          setEndDate(new Date(data[0].date));
+        }
         setActivityData(data);
         setActivity(datesGroupByComponent(data, "W"));
       });
