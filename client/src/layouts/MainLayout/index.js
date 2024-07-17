@@ -142,19 +142,26 @@ export default function MainLayout({ children, style, match }) {
   };
 
   useEffect(() => {
-    let count = 0;
-    countNotifications()
-      .then((data) => data.json())
-      .then((result) => {
-        count += result.count;
-        fetchDashboardCount()
-          .then((d) => d.json())
-          .then((items) => {
-            Object.keys(items).map((key) => (count += items[key]));
-            setNotifCount(count);
+    if (loggedInUser) {
+      let count = 0;
+      countNotifications()
+        .then((data) => data.json())
+        .then((result) => {
+          count += result.count;
+          return fetchDashboardCount();
+        })
+        .then((d) => d.json())
+        .then((items) => {
+          Object.values(items).forEach((value) => {
+            count += value;
           });
-      });
-  }, []);
+          setNotifCount(count);
+        })
+        .catch((error) => {
+          console.error("Error fetching notifications or dashboard count:", error);
+        });
+    }
+  }, [loggedInUser]);
 
   const handleConcept = useCallback(() => {
     history.push(ConceptsLocation);

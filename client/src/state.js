@@ -12,6 +12,9 @@ const initialState = {
   loading: false,
 };
 
+// debug
+console.log("Initial state:", initialState);
+
 const GlobalStateReducer = (state, action) => {
   switch (action.type) {
     case "SET_LOGGED_IN_USER":

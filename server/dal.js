@@ -18,6 +18,7 @@ const init = async (url, name) => {
         mongoClient = client;
         database = client.db(name);
         console.log(`🔥 Connected to ${name} 🔥`);
+        console.log(`🔥 MongoDB Replica Set Mode: ${process.env.USE_REPLICA_SET === 'true'} 🔥`);
         resolve();
       }
     );

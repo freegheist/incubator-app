@@ -2,6 +2,7 @@ const { Router } = require("express");
 const { getTable, getClient } = require("../../dal");
 const { signToken } = require("../../handlers");
 const utils = require("./utils");
+const Config = require("../../config"); 
 
 const router = Router();
 const mongoClient = getClient();
@@ -18,60 +19,69 @@ let wrap =
   (...args) =>
     fn(...args).catch(args[2]);
 
-router.post("/register", async (req, res, next) => {
-  const { password, ...user } = req.body;
-
-  if (!password) {
-    res.status(403).send("User must have a password");
-  }
-
-  if (!usernameIsValid(req.body.username)) {
-    res.send({
-      error:
-        "Username is invalid, spaces and special characters are not allowed",
-    });
-  }
-
-  const session = mongoClient.startSession();
-  try {
-    const existingUsername = await usersCollection.findOne({
-      username: req.body.username,
-    });
-    const existingEmail = await usersCollection.findOne({
-      email: req.body.email,
-    });
-    if (existingUsername) {
-      res.send({ error: "Username taken" });
-    } else if (existingEmail) {
-      res.send({ error: "Email taken" });
-    } else {
-      await session.withTransaction(async () => {
+  router.post("/register", async (req, res, next) => {
+    const { password, ...user } = req.body;
+  
+    if (!password) {
+      return res.status(403).send("User must have a password");
+    }
+  
+    if (!usernameIsValid(req.body.username)) {
+      return res.send({
+        error: "Username is invalid, spaces and special characters are not allowed",
+      });
+    }
+  
+    const session = Config.useReplicaSet ? mongoClient.startSession() : null;
+  
+    try {
+      const existingUsername = await usersCollection.findOne({
+        username: req.body.username,
+      });
+      const existingEmail = await usersCollection.findOne({
+        email: req.body.email,
+      });
+  
+      if (existingUsername) {
+        return res.send({ error: "Username taken" });
+      } else if (existingEmail) {
+        return res.send({ error: "Email taken" });
+      }
+  
+      const registerUser = async () => {
         const hash = await utils.createHash(password);
         const { insertedId: userId } = await usersCollection.insertOne(
           { ...user, createdDate: new Date() },
-          {
-            session,
-          }
+          Config.useReplicaSet ? { session } : {}
         );
-        await passwordsCollection.insertOne({ userId, hash }, { session });
-        user._id = userId;
-      });
-      const token = await signToken(user);
-      await activityCollection.insertOne({
-        activityLevel: "global",
-        activityType: "newUser",
-        sourceUser: user,
-        date: new Date(),
-      });
-      res.status(200).send({ token, user });
+  
+        await passwordsCollection.insertOne({ userId, hash }, Config.useReplicaSet ? { session } : {});
+        await activityCollection.insertOne({
+          activityLevel: "global",
+          activityType: "newUser",
+          sourceUser: { ...user, _id: userId },
+          date: new Date(),
+        }, Config.useReplicaSet ? { session } : {});
+  
+        return { userId, token: await signToken({ ...user, _id: userId }) };
+      };
+  
+      if (Config.useReplicaSet) {
+        await session.withTransaction(registerUser);
+      } else {
+        const { userId, token } = await registerUser();
+        return res.status(200).send({ token, user: { ...user, _id: userId } });
+      }
+    } catch (e) {
+      console.error("Error in user registration:", e);
+      next(e);
+    } finally {
+      if (session) {
+        session.endSession();
+      }
     }
-  } catch (e) {
-    console.log(e);
-    next(e);
-  } finally {
-    session.endSession();
-  }
-});
+  });
+  
 
 router.post(
   "/login",
