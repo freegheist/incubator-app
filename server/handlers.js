@@ -26,17 +26,21 @@ const verifyToken = async (token) => {
 };
 
 const tokenDataHandler = (req, res, next) => {
+  console.log("tokenDataHandler - Incoming token:", req.token);
   if (!req.token) {
+    console.log("No token found, proceeding without authentication");
     next();
     return;
   }
 
   verifyToken(req.token).then(
     (tokenPayload) => {
+      console.log("Token verified successfully:", tokenPayload);
       req.tokenPayload = tokenPayload;
       next();
     },
     (orgErr) => {
+      console.error("Token verification failed:", orgErr.message);
       const err = new Error(orgErr.message);
       err.code = 401;
       next(err);

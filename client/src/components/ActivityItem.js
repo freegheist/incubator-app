@@ -9,7 +9,7 @@ import { Breakpoints } from "../utils/breakpoint";
 
 import { renderToString } from "react-dom/server";
 import useGlobalState from "../state";
-import Textarea from "../components/Textarea";
+import Textarea from "./Textarea";
 import { CircularProgress } from "@material-ui/core";
 import { getBountyActivity, updateCommentBounty } from "../api/bountiesApi";
 import { updateCommentTask, getTaskActivity } from "../api/tasksApi";
@@ -107,12 +107,12 @@ export default function ActivityItem({
       let newComment = comment.slice();
       results.forEach(
         (result) =>
-          (newComment = newComment.replace(
-            result,
-            renderToString(
-              <a href={ProfileLocation(result.replace("@", ""))}>{result}</a>
-            )
-          ))
+        (newComment = newComment.replace(
+          result,
+          renderToString(
+            <a href={ProfileLocation(result.replace("@", ""))}>{result}</a>
+          )
+        ))
       );
       return newComment;
     } else {
@@ -164,8 +164,8 @@ export default function ActivityItem({
           ? item.activityType === "newUser"
             ? history.push(ProfileLocation(item.sourceUser.username))
             : item.activityType === "newConcept"
-            ? history.push(ConceptLocation(item.bountyDisplayURL))
-            : history.push(BountyLocation(item.bountyDisplayURL))
+              ? history.push(ConceptLocation(item.bountyDisplayURL))
+              : history.push(BountyLocation(item.bountyDisplayURL))
           : null
       }
     >
@@ -326,8 +326,8 @@ export default function ActivityItem({
                     {concept
                       ? "concept"
                       : item.activityType === "commentTask"
-                      ? "task"
-                      : "bounty"}
+                        ? "task"
+                        : "bounty"}
                   </div>
                 )}
                 {loggedInUser &&

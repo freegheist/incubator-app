@@ -105,46 +105,65 @@ router.get(
     res.send(result);
   })
 );
-
 router.get(
   "/dashboard-count",
   ...noAuthHandlers(async (req, res) => {
-    const unpaidTasks = await tasksCollection
-      .find({ status: "complete", isPaid: { $exists: false } })
-      .count();
-    const pendingAdminApproval = await tasksCollection
-      .find({
-        status: "pending",
-        $or: [
-          { "createdBy._id": req.tokenPayload._id },
-          { "createdBy._id": ObjectID(req.tokenPayload._id) },
-        ],
-      })
-      .count();
+    if (!req.tokenPayload) {
+      // User is not authenticated, return default data
+      return res.json({
+        unpaidTasks: 0,
+        pendingAdminApproval: 0,
+        pendingContributorCompletion: 0,
+        pendingContributorModify: 0,
+        pendingConcepts: 0,
+      });
+    }
+
+    const unpaidTasks = req.tokenPayload.isSuperUser
+      ? await tasksCollection
+          .find({ status: "complete", isPaid: { $exists: false } })
+          .count()
+      : 0;
+
+    const pendingAdminApproval = req.tokenPayload.isAdmin
+      ? await tasksCollection
+          .find({
+            status: "pending",
+            $or: [
+              { "createdBy._id": req.tokenPayload._id },
+              { "createdBy._id": ObjectID(req.tokenPayload._id) },
+            ],
+          })
+          .count()
+      : 0;
+
     let pendingJobs = [];
-    const pendingJobAdminApproval = await tasksCollection
-      .find({
-        bountyType: "job",
-        completions: { $exists: true, $not: { $size: 0 } },
-        $or: [
-          { "createdBy._id": req.tokenPayload._id },
-          { "createdBy._id": ObjectID(req.tokenPayload._id) },
-        ],
-      })
-      .toArray();
-    for (let i = 0; i < pendingJobAdminApproval.length; i++) {
-      for (let j = 0; j < pendingJobAdminApproval[i].completions.length; j++) {
-        let newJob = { ...pendingJobAdminApproval[i] };
-        delete newJob.reviews;
-        delete newJob.completions;
-        if (!pendingJobAdminApproval[i].completions[j].isPaid) {
-          pendingJobs.push({
-            ...newJob,
-            ...pendingJobAdminApproval[i].completions[j],
-          });
+    if (req.tokenPayload.isAdmin) {
+      const pendingJobAdminApproval = await tasksCollection
+        .find({
+          bountyType: "job",
+          completions: { $exists: true, $not: { $size: 0 } },
+          $or: [
+            { "createdBy._id": req.tokenPayload._id },
+            { "createdBy._id": ObjectID(req.tokenPayload._id) },
+          ],
+        })
+        .toArray();
+      for (let i = 0; i < pendingJobAdminApproval.length; i++) {
+        for (let j = 0; j < pendingJobAdminApproval[i].completions.length; j++) {
+          let newJob = { ...pendingJobAdminApproval[i] };
+          delete newJob.reviews;
+          delete newJob.completions;
+          if (!pendingJobAdminApproval[i].completions[j].isPaid) {
+            pendingJobs.push({
+              ...newJob,
+              ...pendingJobAdminApproval[i].completions[j],
+            });
+          }
         }
       }
     }
+
     const pendingContributorCompletion = await tasksCollection
       .find({
         status: "open",
@@ -154,6 +173,7 @@ router.get(
         ],
       })
       .count();
+
     const pendingContributorModify = await tasksCollection
       .find({
         status: "modify",
@@ -163,19 +183,22 @@ router.get(
         ],
       })
       .count();
-    const pendingConcepts = await bountiesCollection
-      .find({ type: "concept", status: "review" })
-      .count();
+
+    const pendingConcepts = req.tokenPayload.isAdmin
+      ? await bountiesCollection
+          .find({ type: "concept", status: "review" })
+          .count()
+      : 0;
+
     const result = {
-      unpaidTasks: req.tokenPayload.isSuperUser && unpaidTasks,
-      pendingAdminApproval:
-        req.tokenPayload.isAdmin && pendingAdminApproval + pendingJobs.length,
+      unpaidTasks,
+      pendingAdminApproval: pendingAdminApproval + pendingJobs.length,
       pendingContributorCompletion,
       pendingContributorModify,
-      pendingConcepts: req.tokenPayload.isAdmin && pendingConcepts,
+      pendingConcepts,
     };
-    res.send(result);
+
+    res.json(result);
   })
 );
-
 module.exports = router;

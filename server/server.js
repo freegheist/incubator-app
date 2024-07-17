@@ -16,7 +16,12 @@ const PORT = process.env.PORT || 8080;
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000', 
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(formData.parse());
 
 cloudinary.config({
@@ -26,6 +31,11 @@ cloudinary.config({
 });
 
 app.use(bearerToken());
+app.use((req, res, next) => {
+  console.log("Request path:", req.path);
+  console.log("Extracted token:", req.token);
+  next();
+});
 app.use(tokenDataHandler);
 
 const server = app.listen(process.env.PORT || PORT, async () => {
@@ -35,6 +45,14 @@ const server = app.listen(process.env.PORT || PORT, async () => {
   Controllers.forEach(({ controller, baseRoute }) => {
     app.use(`/${baseRoute}`, controller);
   });
+});
+
+// token debugging
+app.use((req, res, next) => {
+  console.log("Request path:", req.path);
+  console.log("Authorization header:", req.headers.authorization);
+  console.log("Extracted token:", req.token);
+  next();
 });
 
 app.get("/", async (req, res) => {

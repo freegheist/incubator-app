@@ -45,6 +45,9 @@ export const dashincubatorRequest = async (
   const authToken = getAuthToken();
   if (authToken) {
     headers["authorization"] = `Bearer ${authToken}`;
+
+    // debug
+    console.log("Sending token:", authToken);
   }
 
   const request = {
